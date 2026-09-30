@@ -97,9 +97,9 @@ namespace lg
 		static const uint8_t MESSAGE_LEVEL_ERROR = 0x02;
 
 		/* Elements */
+		uint8_t level;
 		std::string message;
 		std::string functionName;
-		uint8_t level;
 
 		/* Static Methods */
 		static std::string getSeverityString(const uint8_t level)
@@ -124,21 +124,27 @@ namespace lg
 		/* Methods */
 
 		// Constructors & Destructor
-		LogMessage(const std::string& _msg = "", const std::string& _fn = "", const uint8_t _lv = 0) : message(_msg), functionName(_fn), level(_lv)
+		LogMessage(const std::string& _msg = "", const std::string& _fn = "", const uint8_t _lv = 0) : level(_lv), message(_msg), functionName(_fn)
 		{};
-		LogMessage(std::string&& _msg, std::string&& _fn, const uint8_t _lv = 0) : message(std::move(_msg)), functionName(std::move(_fn)), level(_lv)
+		LogMessage(std::string&& _msg, std::string&& _fn, const uint8_t _lv = 0) : level(_lv), message(std::move(_msg)), functionName(std::move(_fn))
 		{};
-		LogMessage(const LogMessage& src)
-		{
-			this->message = src.message;
-			this->functionName = (src.functionName != "") ? src.functionName : "";
-			this->level = src.level;
-		};
+		LogMessage(const LogMessage& src) : level(src.level), message(src.message), functionName(src.functionName)
+		{};
 		~LogMessage()
 		{
-			this->message.clear();
 			this->functionName.clear();
+			this->message.clear();
 			this->level = 0;
+		};
+
+		// Assignment Operator
+		inline LogMessage& operator=(const LogMessage& B)
+		{
+			this->level = B.level;
+			this->message = B.message;
+			this->functionName = B.functionName;
+
+			return (*this);
 		};
 
 		// Serialization Methods
@@ -320,9 +326,18 @@ namespace lg
 		// Constructors & Destructor
 		LoggingInterface(Logger* _log = 0) : log(_log)
 		{};
+		LoggingInterface(LoggingInterface& src) : log(src.log)
+		{};
 		~LoggingInterface()
 		{
 			this->log = 0;
+		};
+
+		// Assignment Operator
+		inline LoggingInterface& operator=(const LoggingInterface& B)
+		{
+			this->log = B.log;
+			return (*this);
 		};
 
 		// Log Methods
