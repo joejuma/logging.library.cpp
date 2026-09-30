@@ -116,7 +116,7 @@ namespace lg
 				return "Error";
 				break;
 			default:
-				return "Message";
+				return std::to_string(level);
 				break;
 			};
 		};
