@@ -44,16 +44,6 @@
 }
 #endif
 
-/* Type Aliases */
-#ifndef _TYPEDEF_FLOAT32_
-#define _TYPEDEF_FLOAT32_
-typedef float float32;
-#endif
-#ifndef _TYPEDEF_FLOAT64_
-#define _TYPEDEF_FLOAT64_
-typedef double float64;
-#endif
-
 namespace log
 {
 	/* Constants */
