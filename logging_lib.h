@@ -44,7 +44,7 @@
 }
 #endif
 
-namespace log
+namespace lg
 {
 	/* Constants */
 
