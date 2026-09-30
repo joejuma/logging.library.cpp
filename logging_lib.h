@@ -81,52 +81,90 @@ namespace lg
 
 	/* Structures */
 
-	#ifndef CIRCULAR_BUFFER_STRUCT__H
-	#define CIRCULAR_BUFFER_STRUCT__H
-	// Circular Buffer Structure
-	// @placeholder.
-	#endif
+#ifndef CIRCULAR_BUFFER_STRUCT__H
+#define CIRCULAR_BUFFER_STRUCT__H
+// Circular Buffer Structure
+// @placeholder.
+#endif
 
-	// Log Message Structures
+// Log Message Structures
 	struct LogMessage
 	{
+		/* Static Elements */
+		// Logging Message Level Constants
+		static const uint8_t MESSAGE_LEVEL_MESSAGE = 0x00;
+		static const uint8_t MESSAGE_LEVEL_WARNING = 0x01;
+		static const uint8_t MESSAGE_LEVEL_ERROR = 0x02;
+
 		/* Elements */
 		std::string message;
 		std::string functionName;
+		uint8_t level;
+
+		/* Static Methods */
+		static std::string getSeverityString(const uint8_t level)
+		{
+			switch (level)
+			{
+			case MESSAGE_LEVEL_MESSAGE:
+				return "Message";
+				break;
+			case MESSAGE_LEVEL_WARNING:
+				return "Warning";
+				break;
+			case MESSAGE_LEVEL_ERROR:
+				return "Error";
+				break;
+			default:
+				return "Message";
+				break;
+			};
+		};
 
 		/* Methods */
 
 		// Constructors & Destructor
-		LogMessage(const std::string& _msg = "", const std::string& _fn = "") : message(_msg), functionName(_fn)
+		LogMessage(const std::string& _msg = "", const std::string& _fn = "", const uint8_t _lv = 0) : message(_msg), functionName(_fn), level(_lv)
 		{};
-		LogMessage(std::string&& _msg, std::string&& _fn)
-		{
-			this->message = std::move(_msg);
-			this->functionName = std::move(_fn);
-		};
+		LogMessage(std::string&& _msg, std::string&& _fn, const uint8_t _lv = 0) : message(std::move(_msg)), functionName(std::move(_fn)), level(_lv)
+		{};
 		LogMessage(const LogMessage& src)
 		{
 			this->message = src.message;
 			this->functionName = (src.functionName != "") ? src.functionName : "";
+			this->level = src.level;
 		};
 		~LogMessage()
 		{
 			this->message.clear();
 			this->functionName.clear();
+			this->level = 0;
 		};
 
 		// Serialization Methods
 		inline std::string toCSV() const
 		{
-			return ("\"" + this->message + "\",\"" + this->functionName + "\"\n");
+			return ("" +
+				("\"" + getSeverityString(this->level) + "\",") +
+				("\"" + this->message + "\",") +
+				("\"" + this->functionName + "\"") +
+				"\n");
 		};
 		inline std::string toJSON() const
 		{
-			return ("{\"message\":\"" + this->message + "\", \"functionName\":\"" + this->functionName + "\"}");
+			return ("{" +
+				("\"level\":\"" + getSeverityString(this->level) + "\",") +
+				("\"message\":\"" + this->message + "\",") +
+				("\"functionName\":\"" + this->functionName + "\"") +
+				"}");
 		};
 		inline std::string toXML() const
 		{
-			return ("<LogMessage><Message>" + this->message + "</Message><FunctionName>" + this->functionName + "</FunctionName></LogMessage>");
+			return ("<LogMessage>" + 
+				("<Level>" + getSeverityString(this->level) + "</Level>") +
+				("<Message>" + this->message + "</Message>") +
+				("<FunctionName>" + this->functionName + "< / FunctionName>") + 
+				"</LogMessage>");
 		};
 	};
 
@@ -200,7 +238,7 @@ namespace lg
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
-				this->logs.push_back(LogMessage(_msg, _fn));
+				this->logs.push_back(LogMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_MESSAGE));
 			}
 			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
 			{
@@ -211,7 +249,7 @@ namespace lg
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
-				this->logs.push_back(LogMessage("[WARNING] " + _msg, _fn));
+				this->logs.push_back(LogMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_WARNING));
 			}
 			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
 			{
@@ -222,7 +260,7 @@ namespace lg
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
-				this->logs.push_back(LogMessage("[ERROR] " + _msg, _fn));
+				this->logs.push_back(LogMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_ERROR));
 			}
 			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
 			{
@@ -233,7 +271,7 @@ namespace lg
 		// Serialization Methods
 		inline std::string toCSV(const bool header = true) const
 		{
-			std::string csv = (header) ? "message, functionName\n" : "";
+			std::string csv = (header) ? "level, message, functionName\n" : "";
 			for (const LogMessage& _log : this->logs)
 			{
 				csv += _log.toCSV();
