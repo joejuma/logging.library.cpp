@@ -4,7 +4,7 @@
 	By Joseph Juma
 
 	## Version
-	v1.2.0
+	v1.2.1
 
 	## About
 	A single-header C++14 compatible logging library.
@@ -68,7 +68,6 @@ namespace lg
 	{
 		return LOGGING_LIBRARY_VERSION_PATCH;
 	};
-
 	inline constexpr const uint32_t get_logging_library_version()
 	{
 		uint32_t version = 0x00000000;
@@ -87,7 +86,7 @@ namespace lg
 // @placeholder.
 #endif
 
-// Log Message Structures
+	// Log Message Structures
 	struct LogMessage
 	{
 		/* Static Elements */
@@ -124,12 +123,20 @@ namespace lg
 		/* Methods */
 
 		// Constructors & Destructor
-		LogMessage(const std::string& _msg = "", const std::string& _fn = "", const uint8_t _lv = 0) : level(_lv), message(_msg), functionName(_fn)
+		LogMessage() : level(0), message(""), functionName("")
 		{};
 		LogMessage(std::string&& _msg, std::string&& _fn, const uint8_t _lv = 0) : level(_lv), message(std::move(_msg)), functionName(std::move(_fn))
 		{};
+		LogMessage(const std::string& _msg, const std::string& _fn, uint8_t _lv = 0) : message(_msg), functionName(_fn), level(_lv)
+		{};
 		LogMessage(const LogMessage& src) : level(src.level), message(src.message), functionName(src.functionName)
 		{};
+		LogMessage(LogMessage&& src) noexcept : level(src.level), message(std::move(src.message)), functionName(std::move(src.functionName))
+		{
+			src.level = 0;
+			src.message.clear();
+			src.functionName.clear();
+		};
 		~LogMessage()
 		{
 			this->functionName.clear();
@@ -138,12 +145,30 @@ namespace lg
 		};
 
 		// Assignment Operator
+		inline LogMessage& operator==(LogMessage&& B) noexcept
+		{
+			if (this != &B)
+			{
+				this->level = B.level;
+				this->message = std::move(B.message);
+				this->functionName = std::move(B.functionName);
+
+				B.level = 0;
+				B.message.clear();
+				B.functionName.clear();
+			};
+
+			return (*this);
+		};
 		inline LogMessage& operator=(const LogMessage& B)
 		{
-			this->level = B.level;
-			this->message = B.message;
-			this->functionName = B.functionName;
-
+			if (this != &B)
+			{
+				this->level = B.level;
+				this->message = B.message;
+				this->functionName = B.functionName;
+			};
+			
 			return (*this);
 		};
 
@@ -169,7 +194,7 @@ namespace lg
 			return ("<LogMessage>" + 
 				("<Level>" + getSeverityString(this->level) + "</Level>") +
 				("<Message>" + this->message + "</Message>") +
-				("<FunctionName>" + this->functionName + "< / FunctionName>") + 
+				("<FunctionName>" + this->functionName + "</FunctionName>") + 
 				"</LogMessage>");
 		};
 	};
@@ -223,10 +248,40 @@ namespace lg
 				this->logs.push_back(_log);
 			};
 		};
+		Logger(Logger&& src) noexcept : loggingLevel(src.loggingLevel), logs(std::move(src.logs))
+		{
+			src.loggingLevel = LOG_LEVEL_INVALID;
+			src.logs.clear();
+		};
 		virtual ~Logger()
 		{
 			this->logs.clear();
 			this->loggingLevel = LOG_LEVEL_INVALID;
+		};
+
+		// Assignment Operators
+		inline Logger& operator=(const Logger& B)
+		{
+			if (this != &B)
+			{
+				this->loggingLevel = B.loggingLevel;
+				this->logs = B.logs;
+			};
+
+			return (*this);
+		};
+		inline Logger& operator=(Logger&& B) noexcept
+		{
+			if (this != &B)
+			{
+				this->loggingLevel = std::move(B.loggingLevel);
+				this->logs = std::move(B.logs);
+
+				this->loggingLevel = LOG_LEVEL_INVALID;
+				this->logs.clear();
+			};
+
+			return (*this);
 		};
 
 		// Utility Methods
@@ -240,6 +295,17 @@ namespace lg
 		};
 
 		// Logging Methods
+		inline void logMessage(std::string&& _msg, std::string&& _fn)
+		{
+			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
+			{
+				this->logs.push_back(LogMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_MESSAGE));
+			}
+			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
+			{
+				std::cout << "[Message] in " << _fn << "():" << _msg << "\n";
+			};
+		};
 		inline void logMessage(const std::string& _msg, const std::string& _fn)
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
@@ -251,6 +317,18 @@ namespace lg
 				std::cout << "[Message] in " << _fn << "():" << _msg << "\n";
 			};
 		};
+		
+		inline void logWarning(std::string&& _msg, std::string&& _fn)
+		{
+			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
+			{
+				this->logs.push_back(LogMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_WARNING));
+			}
+			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
+			{
+				std::cout << "[Warning] in " << _fn << "():" << _msg << "\n";
+			};
+		};
 		inline void logWarning(const std::string& _msg, const std::string& _fn)
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
@@ -260,6 +338,18 @@ namespace lg
 			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
 			{
 				std::cout << "[Warning] in " << _fn << "():" << _msg << "\n";
+			};
+		};
+		
+		inline void logError(std::string&& _msg, std::string&& _fn)
+		{
+			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
+			{
+				this->logs.push_back(LogMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_ERROR));
+			}
+			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
+			{
+				std::cout << "[Error] in " << _fn << "():" << _msg << "\n";
 			};
 		};
 		inline void logError(const std::string& _msg, const std::string& _fn)
@@ -291,7 +381,7 @@ namespace lg
 			{
 				json += _log.toJSON() + ",";
 			};
-			json[json.size()] = ']';
+			json += ']';
 			return json;
 		};
 		inline std::string toXML() const
@@ -328,7 +418,7 @@ namespace lg
 		{};
 		LoggingInterface(LoggingInterface& src) : log(src.log)
 		{};
-		~LoggingInterface()
+		virtual ~LoggingInterface()
 		{
 			this->log = 0;
 		};
@@ -336,7 +426,7 @@ namespace lg
 		// Assignment Operator
 		inline LoggingInterface& operator=(const LoggingInterface& B)
 		{
-			this->log = B.log;
+			this->log = B.log; // I feel like this might not need a check atm.
 			return (*this);
 		};
 
@@ -351,15 +441,32 @@ namespace lg
 		};
 
 		// Logging Methods
+		inline void logMessage(std::string&& msg, std::string&& fn)
+		{
+			// @note: For speed I didn't ptr check; will crash if log is invalid.
+			this->logMessage(std::move(msg), std::move(fn));
+		};
 		inline void logMessage(const std::string& msg, const std::string& fn)
 		{
 			// @note: For speed I didn't ptr check; will crash if log is invalid.
 			log->logMessage(msg, fn);
 		};
+		
+		inline void logWarning(std::string&& msg, std::string&& fn)
+		{
+			// @note: For speed I didn't ptr check; will crash if log is invalid.
+			this->logWarning(std::move(msg), std::move(fn));
+		};
 		inline void logWarning(const std::string& msg, const std::string& fn)
 		{
 			// @note: For speed I didn't ptr check; will crash if log is invalid.
 			log->logWarning(msg, fn);
+		};
+		
+		inline void logError(std::string&& msg, std::string&& fn)
+		{
+			// @note: For speed I didn't ptr check; will crash if log is invalid.
+			log->logError(std::move(msg), std::move(fn));
 		};
 		inline void logError(const std::string& msg, const std::string& fn)
 		{
