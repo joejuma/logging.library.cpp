@@ -444,7 +444,7 @@ namespace lg
 		inline void logMessage(std::string&& msg, std::string&& fn)
 		{
 			// @note: For speed I didn't ptr check; will crash if log is invalid.
-			this->logMessage(std::move(msg), std::move(fn));
+			log->logMessage(std::move(msg), std::move(fn));
 		};
 		inline void logMessage(const std::string& msg, const std::string& fn)
 		{
@@ -455,7 +455,7 @@ namespace lg
 		inline void logWarning(std::string&& msg, std::string&& fn)
 		{
 			// @note: For speed I didn't ptr check; will crash if log is invalid.
-			this->logWarning(std::move(msg), std::move(fn));
+			log->logWarning(std::move(msg), std::move(fn));
 		};
 		inline void logWarning(const std::string& msg, const std::string& fn)
 		{
