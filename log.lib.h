@@ -326,6 +326,16 @@ namespace lg
 
 		/* Methods */
 
+		// Constructors & Destructor
+		SimpleLogger(const uint8_t _level = LOG_LEVEL_INTERNAL) : BaseLogger(_level)
+		{};
+		SimpleLogger(const SimpleLogger& src) : BaseLogger(src)
+		{};
+		SimpleLogger(SimpleLogger&& src) noexcept : BaseLogger(std::move(src))
+		{};
+		virtual ~SimpleLogger()
+		{};
+
 		// Assignment Operators
 		inline SimpleLogger& operator=(const SimpleLogger& B)
 		{
