@@ -373,74 +373,58 @@ namespace lg
 			this->logs.clear();
 		};
 		
-		// Logging Methods
-		inline void logMessage(std::string&& _msg, std::string&& _fn) override
+		// Internal Message Logging Methods
+		inline void _logMessage(std::string&& _msg, std::string&& _fn, uint8_t _messageLevel)
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
-				this->logs.push_back(LogMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_MESSAGE));
+				this->logs.push_back(LogMessage(std::move(_msg), std::move(_fn), _messageLevel));
 			}
 			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
 			{
 				std::cout << "[Message] in " << _fn << "():" << _msg << "\n";
 			};
+		};
+		inline void _logMessage(const std::string& _msg, const std::string& _fn, uint8_t _messageLevel)
+		{
+			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
+			{
+				this->logs.push_back(LogMessage(_msg, _fn, _messageLevel));
+			}
+			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
+			{
+				std::cout << "[Message] in " << _fn << "():" << _msg << "\n";
+			};
+		};
+
+		// Message Logging Methods
+		inline void logMessage(std::string&& _msg, std::string&& _fn) override
+		{
+			this->_logMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_MESSAGE);
 		};
 		inline void logMessage(const std::string& _msg, const std::string& _fn) override
 		{
-			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
-			{
-				this->logs.push_back(LogMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_MESSAGE));
-			}
-			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
-			{
-				std::cout << "[Message] in " << _fn << "():" << _msg << "\n";
-			};
+			this->_logMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_MESSAGE);
 		};
-		
+
+		// Warning Logging Methods
 		inline void logWarning(std::string&& _msg, std::string&& _fn) override
 		{
-			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
-			{
-				this->logs.push_back(LogMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_WARNING));
-			}
-			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
-			{
-				std::cout << "[Warning] in " << _fn << "():" << _msg << "\n";
-			};
+			this->_logMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_WARNING);
 		};
 		inline void logWarning(const std::string& _msg, const std::string& _fn) override
 		{
-			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
-			{
-				this->logs.push_back(LogMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_WARNING));
-			}
-			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
-			{
-				std::cout << "[Warning] in " << _fn << "():" << _msg << "\n";
-			};
+			this->_logMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_WARNING);
 		};
-		
+
+		// Error Logging Methods
 		inline void logError(std::string&& _msg, std::string&& _fn) override
 		{
-			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
-			{
-				this->logs.push_back(LogMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_ERROR));
-			}
-			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
-			{
-				std::cout << "[Error] in " << _fn << "():" << _msg << "\n";
-			};
+			this->_logMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_ERROR);
 		};
 		inline void logError(const std::string& _msg, const std::string& _fn) override
 		{
-			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
-			{
-				this->logs.push_back(LogMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_ERROR));
-			}
-			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
-			{
-				std::cout << "[Error] in " << _fn << "():" << _msg << "\n";
-			};
+			this->_logMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_ERROR);
 		};
 
 		// Serialization Methods
