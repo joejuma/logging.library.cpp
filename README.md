@@ -2,7 +2,7 @@
 By Joseph Juma
 
 ## Version
-v1.2.0
+v1.2.3
 
 ## About
 A single-header C++14 compatible logging library.
@@ -14,4 +14,4 @@ This library has no AI generated code, nor was AI used in its design.
 This software is provided under the MIT License. Please see the accompanying LICENSE.md file for more information.
 
 ## Copyright
-Copyright 2024-2026, Joseph Juma. All rights reserved.
+Copyright 2024 to 2026, Joseph Juma. All rights reserved.

@@ -1,10 +1,10 @@
 #pragma once
 /*
-	# Logging (Library)
+	# Logging Library (C++)
 	By Joseph Juma
 
 	## Version
-	v1.2.1
+	v1.2.3
 
 	## About
 	A single-header C++14 compatible logging library.
@@ -17,7 +17,7 @@
 		allocation on everything(?)
 
 	## Copyright
-	Copyright 2024-2026, Joseph Juma. All rights reserved.
+	Copyright 2024 to 2026, Joseph Juma. All rights reserved.
 */
 #ifndef LOGGING_LIBRARY__H
 #define LOGGING_LIBRARY__H
@@ -26,6 +26,8 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <thread>
+#include <mutex>
 
 /* Macros */
 // Pointer Deletion Macros
@@ -51,7 +53,7 @@ namespace lg
 	// Version Constants
 	static const uint8_t	LOGGING_LIBRARY_VERSION_MAJOR = 1;
 	static const uint8_t	LOGGING_LIBRARY_VERSION_MINOR = 2;
-	static const uint16_t	LOGGING_LIBRARY_VERSION_PATCH = 0;
+	static const uint16_t	LOGGING_LIBRARY_VERSION_PATCH = 3;
 
 	/* Functions */
 
@@ -68,6 +70,7 @@ namespace lg
 	{
 		return LOGGING_LIBRARY_VERSION_PATCH;
 	};
+	
 	inline constexpr const uint32_t get_logging_library_version()
 	{
 		uint32_t version = 0x00000000;
@@ -76,6 +79,15 @@ namespace lg
 		version = (version << 8) ^ get_logging_library_version_patch();
 
 		return version;
+	};
+	inline const std::string get_logging_library_version_string()
+	{
+		return (
+			"v" +
+			std::to_string(LOGGING_LIBRARY_VERSION_MAJOR) + "." +
+			std::to_string(LOGGING_LIBRARY_VERSION_MINOR) + "." +
+			std::to_string(LOGGING_LIBRARY_VERSION_PATCH)
+		);
 	};
 
 	/* Structures */
@@ -90,6 +102,7 @@ namespace lg
 	struct LogMessage
 	{
 		/* Static Elements */
+		
 		// Logging Message Level Constants
 		static const uint8_t MESSAGE_LEVEL_MESSAGE = 0x00;
 		static const uint8_t MESSAGE_LEVEL_WARNING = 0x01;
@@ -145,7 +158,7 @@ namespace lg
 		};
 
 		// Assignment Operator
-		inline LogMessage& operator==(LogMessage&& B) noexcept
+		inline LogMessage& operator=(LogMessage&& B) noexcept
 		{
 			if (this != &B)
 			{
@@ -203,25 +216,52 @@ namespace lg
 	struct Logger
 	{
 		/*
-			# Logger (struct)
+			# Logger (interface)
 
 			## About
-			A log managing structure. Used as the central logging mechanism, and
-			repository. This is a base-class implementation, which should be
-			derived from for more specialized use cases.
+			An abstract interface for log managing structures. Classes that
+			derive from this are employed as the central logging mechanism
+			and repository.
+		*/
 
-			## To Do
-			-	Improve the implementation here to be more modular. A circ-buffer
-				logger isn't feasible from this base-class as-is. So a breakout
-				into a more sparse pure-virtual base-class and implementation of
-				this logger as just one variant would be a stronger design.
+		/* Methods */
+
+		// Metadata Methods
+		virtual size_t size() const = 0;
+
+		// Utility Methods
+		virtual void clear() noexcept = 0;
+
+		// Message Logging Methods
+		virtual void logMessage(std::string&& _msg, std::string&& _fn) = 0;
+		virtual void logMessage(const std::string& _msg, const std::string& _fn) = 0;
+
+		// Warning Logging Methods
+		virtual void logWarning(std::string&& _msg, std::string&& _fn) = 0;
+		virtual void logWarning(const std::string& _msg, const std::string& _fn) = 0;
+
+		// Error Logging Methods
+		virtual void logError(std::string&& _msg, std::string&& _fn) = 0;
+		virtual void logError(const std::string& _msg, const std::string& _fn) = 0;
+
+		// Serialization Methods
+		virtual std::string toCSV(const bool _header = true) const = 0;
+		virtual std::string toJSON() const = 0;
+		virtual std::string toXML() const = 0;
+	};
+	struct BaseLogger : Logger
+	{
+		/*
+			# Base Logger (struct)
+
+			## About
+			A base logger class. Implements generic, shared logging behavior
+			and structures.
 
 			## Notes
-			-	I've swapped the log-level checks to runtime from compile-time as
-				it gives us multiple benefits for a small runtime hit. Though
-				given this might be called a large number of very frequent times
-				it may need reversion. So I made this note as a reminder if you
-				are running into logging slowing down your app.
+
+			-	[Reminder] Anything you implement in here needs to be thread
+				safe if not overriden downstream in the `ThreadSafeLogger`!
 		*/
 
 		/* Static Elements */
@@ -238,9 +278,9 @@ namespace lg
 		/* Methods */
 
 		// Constructors & Destructor
-		Logger(const uint8_t _level = LOG_LEVEL_INTERNAL) : loggingLevel(_level)
+		BaseLogger(const uint8_t _level = LOG_LEVEL_INTERNAL) : loggingLevel(_level)
 		{};
-		Logger(const Logger& src) : loggingLevel(src.loggingLevel)
+		BaseLogger(const BaseLogger& src) : loggingLevel(src.loggingLevel)
 		{
 			this->logs.clear();
 			for (const LogMessage& _log : src.logs)
@@ -248,19 +288,46 @@ namespace lg
 				this->logs.push_back(_log);
 			};
 		};
-		Logger(Logger&& src) noexcept : loggingLevel(src.loggingLevel), logs(std::move(src.logs))
+		BaseLogger(BaseLogger&& src) noexcept : loggingLevel(src.loggingLevel), logs(std::move(src.logs))
 		{
 			src.loggingLevel = LOG_LEVEL_INVALID;
 			src.logs.clear();
 		};
-		virtual ~Logger()
+		virtual ~BaseLogger()
 		{
 			this->logs.clear();
 			this->loggingLevel = LOG_LEVEL_INVALID;
 		};
 
+	};
+	
+	struct SimpleLogger : BaseLogger
+	{
+		/*
+			# Simple Logger (struct)
+
+			## About
+			A simple logging structure. This should be considered a base class
+			for simple, single-threaded application loggers.
+
+			## To Do
+			-	Improve the implementation here to be more modular. A circ-buffer
+				logger isn't feasible from this base-class as-is. So a breakout
+				into a more sparse pure-virtual base-class and implementation of
+				this logger as just one variant would be a stronger design.
+
+			## Notes
+			-	I've swapped the log-level checks to runtime from compile-time as
+				it gives us multiple benefits for a small runtime hit. Though
+				given this might be called a large number of very frequent times
+				it may need reversion. So I made this note as a reminder if you
+				are running into logging slowing down your app.
+		*/
+
+		/* Methods */
+
 		// Assignment Operators
-		inline Logger& operator=(const Logger& B)
+		inline SimpleLogger& operator=(const SimpleLogger& B)
 		{
 			if (this != &B)
 			{
@@ -270,7 +337,7 @@ namespace lg
 
 			return (*this);
 		};
-		inline Logger& operator=(Logger&& B) noexcept
+		inline SimpleLogger& operator=(SimpleLogger&& B) noexcept
 		{
 			if (this != &B)
 			{
@@ -284,18 +351,20 @@ namespace lg
 			return (*this);
 		};
 
-		// Utility Methods
-		inline void clear() noexcept
-		{
-			this->logs.clear();
-		};
-		inline uint64_t size() const
+		// Metadata Methods
+		inline size_t size() const override
 		{
 			return this->logs.size();
 		};
 
+		// Utility Methods
+		inline void clear() noexcept override
+		{
+			this->logs.clear();
+		};
+		
 		// Logging Methods
-		inline void logMessage(std::string&& _msg, std::string&& _fn)
+		inline void logMessage(std::string&& _msg, std::string&& _fn) override
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
@@ -306,7 +375,7 @@ namespace lg
 				std::cout << "[Message] in " << _fn << "():" << _msg << "\n";
 			};
 		};
-		inline void logMessage(const std::string& _msg, const std::string& _fn)
+		inline void logMessage(const std::string& _msg, const std::string& _fn) override
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
@@ -318,7 +387,7 @@ namespace lg
 			};
 		};
 		
-		inline void logWarning(std::string&& _msg, std::string&& _fn)
+		inline void logWarning(std::string&& _msg, std::string&& _fn) override
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
@@ -329,7 +398,7 @@ namespace lg
 				std::cout << "[Warning] in " << _fn << "():" << _msg << "\n";
 			};
 		};
-		inline void logWarning(const std::string& _msg, const std::string& _fn)
+		inline void logWarning(const std::string& _msg, const std::string& _fn) override
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
@@ -341,7 +410,7 @@ namespace lg
 			};
 		};
 		
-		inline void logError(std::string&& _msg, std::string&& _fn)
+		inline void logError(std::string&& _msg, std::string&& _fn) override
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
@@ -352,7 +421,7 @@ namespace lg
 				std::cout << "[Error] in " << _fn << "():" << _msg << "\n";
 			};
 		};
-		inline void logError(const std::string& _msg, const std::string& _fn)
+		inline void logError(const std::string& _msg, const std::string& _fn) override
 		{
 			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
 			{
@@ -365,7 +434,7 @@ namespace lg
 		};
 
 		// Serialization Methods
-		inline std::string toCSV(const bool header = true) const
+		inline std::string toCSV(const bool header = true) const override
 		{
 			std::string csv = (header) ? "level, message, functionName\n" : "";
 			for (const LogMessage& _log : this->logs)
@@ -374,7 +443,7 @@ namespace lg
 			};
 			return csv;
 		};
-		inline std::string toJSON() const
+		inline std::string toJSON() const override
 		{
 			std::string json = "[";
 			for (const LogMessage& _log : this->logs)
@@ -384,8 +453,164 @@ namespace lg
 			json += ']';
 			return json;
 		};
-		inline std::string toXML() const
+		inline std::string toXML() const override
 		{
+			std::string xml = "<Logs>";
+			for (const LogMessage& _log : this->logs)
+			{
+				xml += _log.toXML();
+			};
+			xml += "</Logs>";
+			return xml;
+		};
+	};
+	struct ThreadSafeLogger : BaseLogger
+	{
+		/*
+			# Thread Safe Logger (struct)
+
+			## About
+			A thread-safe logging structure. Employs mutexes for multithreading
+			safe logging. Derive from this class if you want to implement
+			thread safe logging.
+		*/
+
+		/* Elements */
+		mutable std::mutex loggerMutex;
+
+		/* Methods */
+
+		// Constructors & Destructor
+		ThreadSafeLogger(const uint8_t _level = LOG_LEVEL_INTERNAL) : BaseLogger(_level)
+		{};
+		
+		ThreadSafeLogger(const ThreadSafeLogger& src, const std::lock_guard<std::mutex>& _guard) : BaseLogger(src)
+		{
+			/*
+				@note
+				This is used to do cross-thread safe copying. It works by
+				passing in a guard on src.loggerMutex which is kept in
+				scope during the various constructor calls.
+			*/
+		};
+		ThreadSafeLogger(const ThreadSafeLogger& src) : ThreadSafeLogger(src, std::lock_guard<std::mutex>(src.loggerMutex))
+		{};
+		
+		ThreadSafeLogger(ThreadSafeLogger&& src, const std::lock_guard<std::mutex>& _guard) noexcept : BaseLogger(std::move(src))
+		{
+			/*
+				@note
+				This is used to do cross-thread safe copying. It works by
+				passing in a guard on src.loggerMutex which is kept in
+				scope during the various constructor calls.
+			*/
+		};
+		ThreadSafeLogger(ThreadSafeLogger&& src) noexcept : ThreadSafeLogger(std::move(src), std::lock_guard<std::mutex>(src.loggerMutex))
+		{};
+
+		virtual ~ThreadSafeLogger()
+		{
+			this->logs.clear();
+			this->loggingLevel = LOG_LEVEL_INVALID;
+		};
+
+		// Metadata Methods
+		inline size_t size() const override
+		{
+			std::lock_guard<std::mutex> _guard(loggerMutex);
+			return this->logs.size();
+		};
+
+		// Utility Methods
+		inline void clear() noexcept override
+		{
+			std::lock_guard<std::mutex> _guard(loggerMutex);
+			this->logs.clear();
+		};
+
+		// Internal Message Logging Methods
+		void _logMessage(std::string&& _msg, std::string&& _fn, uint8_t _messageLevel)
+		{
+			std::lock_guard<std::mutex> _guard(loggerMutex);
+
+			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
+			{
+				this->logs.push_back(LogMessage(std::move(_msg), std::move(_fn), _messageLevel));
+			}
+			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
+			{
+				std::cout << ("[Message] in " + _fn + "():" + _msg + "\n"); // each call to `<<` isn't guaranteed thread-safe.
+			};
+		};
+		void _logMessage(const std::string& _msg, const std::string& _fn, uint8_t _messageLevel)
+		{
+			std::lock_guard<std::mutex> _guard(loggerMutex);
+
+			if ((loggingLevel & LOG_LEVEL_INTERNAL) != 0)
+			{
+				this->logs.push_back(LogMessage(_msg, _fn, _messageLevel));
+			}
+			else if ((loggingLevel & LOG_LEVEL_EXPLICIT) != 0)
+			{
+				std::cout << ("[Message] in " + _fn + "():" + _msg + "\n"); // each call to `<<` isn't guaranteed thread-safe.
+			};
+		};
+
+		// Message Logging Methods
+		inline void logMessage(std::string&& _msg, std::string&& _fn) override
+		{
+			this->_logMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_MESSAGE);
+		};
+		inline void logMessage(const std::string& _msg, const std::string& _fn) override
+		{
+			this->_logMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_MESSAGE);
+		};
+
+		// Warning Logging Methods
+		inline void logWarning(std::string&& _msg, std::string&& _fn) override
+		{
+			this->_logMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_WARNING);
+		};
+		inline void logWarning(const std::string& _msg, const std::string& _fn) override
+		{
+			this->_logMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_WARNING);
+		};
+
+		// Error Logging Methods
+		inline void logError(std::string&& _msg, std::string&& _fn) override
+		{
+			this->_logMessage(std::move(_msg), std::move(_fn), LogMessage::MESSAGE_LEVEL_ERROR);
+		};
+		inline void logError(const std::string& _msg, const std::string& _fn) override
+		{
+			this->_logMessage(_msg, _fn, LogMessage::MESSAGE_LEVEL_ERROR);
+		};
+
+		// Serialization Methods
+		inline std::string toCSV(const bool _header = true) const override
+		{
+			std::lock_guard<std::mutex> _guard(loggerMutex);
+			std::string csv = (_header) ? "level, message, functionName\n" : "";
+			for (const LogMessage& _log : this->logs)
+			{
+				csv += _log.toCSV();
+			};
+			return csv;
+		};
+		inline std::string toJSON() const override
+		{
+			std::lock_guard<std::mutex> _guard(loggerMutex);
+			std::string json = "[";
+			for (const LogMessage& _log : this->logs)
+			{
+				json += _log.toJSON() + ",";
+			};
+			json += ']';
+			return json;
+		};
+		inline std::string toXML() const override
+		{
+			std::lock_guard<std::mutex> _guard(loggerMutex);
 			std::string xml = "<Logs>";
 			for (const LogMessage& _log : this->logs)
 			{
