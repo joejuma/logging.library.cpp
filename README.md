@@ -2,7 +2,7 @@
 By Joseph Juma
 
 ## Version
-v1.2.3
+v1.2.5
 
 ## About
 A single-header C++14 compatible logging library.
